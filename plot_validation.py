@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as col
 import numpy as np
+import math
 import ROOT
 import pandas as pd
 import uproot
@@ -24,26 +25,45 @@ import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--year', dest='year', action='store', default="2016")
-parser.add_argument('--CR', dest='CR', action='store',default="deltaR")
+parser.add_argument('--CR', dest='CR', action='store',default="deltaR_CR")
 parser.add_argument('--category', dest='category', action='store',default="muonmuon")
 parser.add_argument('--var', dest='var', action='store',default="PV_npvs")
+parser.add_argument('--xaxis_title', dest='xaxis_title', action='store',default="# of PV in event")
 parser.add_argument('--dir', dest='dir', action='store',default="/vols/cms/jd918/LLP/CMSSW_10_2_18/src/")
 parser.add_argument('--dir_ntuples', dest='dir_ntuples', action='store',default="/vols/cms/jd918/LLP/CMSSW_10_2_18/src/nanoAOD_friends_200622")
 parser.add_argument('--dir_LLP', dest='dir_LLP', action='store',default="/vols/build/cms/LLP/")
 parser.add_argument('--file_yaml', dest='file_yaml', action='store',default="xsec.yaml")
-parser.add_argument('--dir_yields', dest='dir_yields', action='store',default="yields_200311/")
+parser.add_argument('--hnl_xsec', dest='hnl_xsec', action='store',default="gridpackLookupTable.json")
+parser.add_argument('--dir_yields', dest='dir_yields', action='store',default="yields_200720/")
 parser.add_argument('--file_yields', dest='file_yields', action='store',default="eventyields.json")
+parser.add_argument('--file_hnl_yields', dest='file_hnl_yields', action='store',default="eventyieldsHNL.json")
 parser.add_argument('--luminosity', dest='luminosity', action='store',type=float, default=35.88)
 parser.add_argument('--feature_min', dest='feature_min', action='store',type=float, default=-0.5)
 parser.add_argument('--feature_max', dest='feature_max', action='store',type=float, default=60.5)
 parser.add_argument('--bins', dest='bins', action='store',type=int, default=61)
 parser.add_argument('--array_var', dest='array_var', action='store',type=int, default=0)
+parser.add_argument('--log_scale', dest='log_scale', action='store',type=int, default=1)
+parser.add_argument('--oneFile', dest='oneFile', action='store',type=int, default=1)
+parser.add_argument('--hnl', dest='hnl', action='store',default="HNL_dirac_all_ctau1p0e01_massHNL10p0_Vall5p262e-04-2016")
 
 args = parser.parse_args()
 
+coupling_dict = {}
+coupling_dict["muonmuon"] = 12
+coupling_dict["muonelectron"] = 7
+coupling_dict["electronmuon"] = 7
+coupling_dict["electronelectron"] = 2
 category = args.category
+coupling = str(coupling_dict[category])
 
+category_name_dict = {}
+category_name_dict["muonmuon"] = "#mu#mu"
+category_name_dict["muonelectron"] = "#mue"
+category_name_dict["electronmuon"] = "e#mu"
+category_name_dict["electronelectron"] = "ee"
+category_name = category_name_dict[category]
 
+print(args.dir_ntuples)
 def read_data(type):
 
     names = ROOT.std.vector('string')()
@@ -97,31 +117,59 @@ def selection_DY(tree):
 
     return sel
 
-def selection_deltaR(tree):
+def selection_deltaR_CR(tree):
+    deltaR_selection = [i[0] if len(i) > 0 else 2 for i in tree.array("lepJet_nominal_deltaR")]
     sel = (tree.array("nleadingLepton") == 1) & \
           (tree.array("nsubleadingLepton") == 1) & \
           (tree.array("nlepJet_nominal") == 1) & \
-          (tree.array("lepJet_nominal_deltaR") > 2.0) & \
+          (np.greater(deltaR_selection , 2)) & \
           (tree.array("MET_filter") == 1) & \
           (tree.array("dilepton_mass") < 80.) & \
           (tree.array("dilepton_mass") > 20.) & \
-          (tree.array("EventObservables_nominal_met") < 100.) & \
-          (tree.array("dilepton_charge") == -1)#Dirac samples OS
+          (tree.array("EventObservables_nominal_met") < 100.)
+          #(tree.array("dilepton_charge") == -1)#Dirac samples OS
+
+    return sel
+
+def selection_deltaR_SR(tree):
+    deltaR_selection = [i[0] if len(i) > 0 else 2 for i in tree.array("lepJet_nominal_deltaR")]
+    sel = (tree.array("nleadingLepton") == 1) & \
+          (tree.array("nsubleadingLepton") == 1) & \
+          (tree.array("nlepJet_nominal") == 1) & \
+          (np.less(deltaR_selection , 2)) & \
+          (tree.array("MET_filter") == 1) & \
+          (tree.array("dilepton_mass") < 80.) & \
+          (tree.array("dilepton_mass") > 20.) & \
+          (tree.array("EventObservables_nominal_met") < 100.)
+          #(tree.array("dilepton_charge") == -1)#Dirac samples OS
+
+    return sel
+
+def selection_preselection(tree):
+    sel = (tree.array("nleadingLepton") == 1) & \
+          (tree.array("nsubleadingLepton") == 1) & \
+          (tree.array("nlepJet_nominal") == 1) & \
+          (tree.array("MET_filter") == 1) & \
+          (tree.array("dilepton_mass") < 80.) & \
+          (tree.array("dilepton_mass") > 20.) & \
+          (tree.array("EventObservables_nominal_met") < 100.)
+          #(tree.array("lepJet_nominal_deltaR") < 2.0) & \
+          #(tree.array("dilepton_charge") == -1)#Dirac samples OS
 
     return sel
 
 def dilepton_categories(category, tree):
     if category == "muonmuon":
-        sel = (tree.array("category_nominal_muonmuon")==1) & \
+        sel = (tree.array("Leptons_muonmuon")==1) & \
               (tree.array("IsoMuTrigger_flag") == 1)
     elif category == "muonelectron":
-        sel = (tree.array("category_nominal_muonelectron")==1) & \
+        sel = (tree.array("Leptons_muonelectron")==1) & \
               (tree.array("IsoMuTrigger_flag") == 1)
     elif category == "electronelectron":
-        sel = (tree.array("category_nominal_electronelectron")==1) & \
+        sel = (tree.array("Leptons_electronelectron")==1) & \
               (tree.array("IsoElectronTrigger_flag") == 1)
     elif category == "electronmuon":
-        sel = (tree.array("category_nominal_electronmuon")==1) & \
+        sel = (tree.array("Leptons_electronmuon")==1) & \
               (tree.array("IsoElectronTrigger_flag") == 1)
 
     return sel
@@ -131,15 +179,17 @@ directory_ntuples = os.path.join(args.dir_ntuples, args.year)
 dirlist_ntuples = os.listdir(directory_ntuples)
 
 xsecs_raw = yaml.load(open(os.path.join(args.dir_LLP, args.file_yaml)))
+xsecs_hnl_raw = json.load(open(os.path.join(args.dir_LLP, args.hnl_xsec)))
 #print xsecs
 
 yields_raw = json.load(open(os.path.join(args.dir_LLP, args.dir_yields, args.year, args.file_yields)))
+yields_hnl_raw = json.load(open(os.path.join(args.dir_LLP, args.dir_yields, args.year, args.file_hnl_yields)))
 #print yields
 
-mcs = ["QCD", "ST", "TTTo", "WTo", "DY"]
+mcs = ["QCD", "ST", "TTTo", "WTo", "DY", args.hnl]
 #mcs = ["QCD_Pt-1000toInf"]
 
-colours = ["#bdbdbd", "#ffb3bf", "#ef5350", "#388e3c", "#1976d2"]
+colours = ["#bdbdbd", "#ffb3bf", "#ef5350", "#388e3c", "#1976d2", "#b638d6"]
 files_MC = {}
 files_data = {}
 xsecs = {}
@@ -151,16 +201,22 @@ for dir in dirlist_ntuples:
             continue
         else:
             files_MC[dir] = os.listdir(os.path.join(directory_ntuples, dir))
-            for xsec_key in xsecs_raw.keys():
-                if xsec_key in dir:
-                    xsecs[dir] = xsecs_raw[xsec_key]
-                    break
-                else:
-                    xsecs[dir] = xsecs_raw[xsec_key]
-            for yield_key in yields_raw.keys():
-                if yield_key in dir:
-                    yields[dir] = yields_raw[yield_key]
-                    break
+            if "HNL" in dir:
+                xsecs[dir] = 1000. * xsecs_hnl_raw[dir.replace("-"+str(args.year), "")]["weights"][coupling]["xsec"]["nominal"]
+            else:
+                for xsec_key in xsecs_raw.keys():
+                    if xsec_key in dir:
+                        xsecs[dir] = xsecs_raw[xsec_key]
+
+            if "HNL" in dir:
+                yields[dir] = yields_hnl_raw[dir]["LHEWeights_coupling_"+str(coupling)]
+            else:
+                for yield_key in yields_raw.keys():
+                    if yield_key in dir:
+                        yields[dir] = yields_raw[yield_key]
+                        break
+
+
     if category[0] == "m":
         if any(["SingleMuon" in dir]):
             files_data[dir] = os.listdir(os.path.join(directory_ntuples, dir))
@@ -184,9 +240,19 @@ for dir, files in files_MC.iteritems():
 
     print dir
 
-    for file in files:
+    if args.oneFile:
+        files1 = [files[1]]
+    else:
+        files1 = files
+
+    for file in files1:
         #print file
-        f_MC = uproot.open(os.path.join(directory_ntuples, dir, file))
+        try:
+            f_MC = uproot.open(os.path.join(directory_ntuples, dir, file))
+        except ValueError:
+            print("Could not open file.")
+            continue
+
         if not f_MC:
             print "could not open file: ", dir, file
             continue
@@ -202,8 +268,12 @@ for dir, files in files_MC.iteritems():
             cuts = selection_DY(tree)
         elif args.CR == "highMET":
             cuts = selection_highMET(tree)
-        elif args.CR == "deltaR":
-            cuts = selection_deltaR(tree)
+        elif args.CR == "deltaR_CR":
+            cuts = selection_deltaR_CR(tree)
+        elif args.CR == "deltaR_SR":
+            cuts = selection_deltaR_SR(tree)
+        elif args.CR == "preselection":
+            cuts = selection_preselection(tree)
 
         category_weight = dilepton_categories(args.category, tree)
         cuts = cuts*category_weight
@@ -243,56 +313,69 @@ for mc in mcs:
                 #map(lambda hist_reweighted[mc]: hist_reweighted[mc] + hists_reweighted['dir'], hists_reweighted)
             hist_original[mc][0].Add(hists_original[dir][0])
 
-for dir, files in files_data.iteritems():
 
-    print dir
+if args.CR == "deltaR_CR":
+    for dir, files in files_data.iteritems():
 
-    for file in files:
-        #print file
-        f_data = uproot.open(os.path.join(directory_ntuples, dir, file))
-        if not f_data:
-            print "could not open file: ", dir, file
-            continue
+        print dir
 
-        #print f_data.keys()
-        tree = f_data["Friends"]
-    	if not tree:
-    	    print "empty tree in: ", dir, file
-    	    continue
-
-        if args.CR == "DY":
-            cuts = selection_DY(tree)
-        elif args.CR == "highMET":
-            cuts = selection_highMET(tree)
-        elif args.CR == "deltaR":
-            cuts = selection_deltaR(tree)
-
-        category_weight = dilepton_categories(args.category, tree)
-        cuts = cuts*category_weight
-
-        if args.array_var == 1:
-            tree_cuts = np.array([i[0] if len(i) > 0 else None for i in tree.array(args.var)])[cuts != 0]
-            tree_cuts = tree_cuts[tree_cuts != np.array(None)]
+        if args.oneFile:
+            files1 = [files[1]]
         else:
-            tree_cuts = tree.array(args.var)[cuts != 0].flatten()
+            files1 = files
 
-        if category[0] == "m":
-            trigger_weight = tree.array("IsoMuTrigger_flag")[cuts != 0].flatten()
-        elif category[0] == "e":
-            trigger_weight = tree.array("IsoElectronTrigger_flag")[cuts != 0].flatten()
+        for file in files1:
+            #print file
+            f_data = uproot.open(os.path.join(directory_ntuples, dir, file))
+            if not f_data:
+                print "could not open file: ", dir, file
+                continue
 
-        if len(tree_cuts) > 0:
+            #print f_data.keys()
+            tree = f_data["Friends"]
+            if not tree:
+        	    print "empty tree in: ", dir, file
+        	    continue
 
-            hist_var = define_plots_1D(binning, args.var, "Entries", args.var+str(random.randint(1, 1000)))
-            hist_var = plotting_1D(tree_cuts, hist_var, trigger_weight)
-            hists_data[dir][0].Add(hist_var)
+            if args.CR == "DY":
+                cuts = selection_DY(tree)
+            elif args.CR == "highMET":
+                cuts = selection_highMET(tree)
+            elif args.CR == "deltaR_CR":
+                cuts = selection_deltaR_CR(tree)
+            elif args.CR == "deltaR_SR":
+                cuts = selection_deltaR_SR(tree)
+            elif args.CR == "preselection":
+                cuts = selection_preselection(tree)
 
-    hist_data.Add(hists_data[dir][0])
+            category_weight = dilepton_categories(args.category, tree)
+            cuts = cuts*category_weight
+
+            if args.array_var == 1:
+                tree_cuts = np.array([i[0] if len(i) > 0 else None for i in tree.array(args.var)])[cuts != 0]
+                tree_cuts = tree_cuts[tree_cuts != np.array(None)]
+            else:
+                tree_cuts = tree.array(args.var)[cuts != 0].flatten()
+
+            if category[0] == "m":
+                trigger_weight = tree.array("IsoMuTrigger_flag")[cuts != 0].flatten()
+            elif category[0] == "e":
+                trigger_weight = tree.array("IsoElectronTrigger_flag")[cuts != 0].flatten()
+
+            if len(tree_cuts) > 0:
+
+                hist_var = define_plots_1D(binning, args.var, "Entries", args.var+str(random.randint(1, 1000)))
+                hist_var = plotting_1D(tree_cuts, hist_var, trigger_weight)
+                hists_data[dir][0].Add(hist_var)
+
+        hist_data.Add(hists_data[dir][0])
 
 hist_stack_reweighted = ROOT.THStack("MC reweighted", "MC reweighted")
 hist_stack_original = ROOT.THStack("MC original", "MC original")
 
 for mc, col in zip(mcs, colours):
+    if "HNL" in mc:
+        continue
     hist_reweighted[mc][1].SetLineColor(ROOT.TColor.GetColor(col))
     hist_reweighted[mc][1].SetFillColor(ROOT.TColor.GetColor(col))
     print mc, hist_reweighted[mc][1].Integral()
@@ -309,6 +392,9 @@ if hist_data is not None:
 
     hist_ratio_reweighted = hist_data.Clone("ratio histogram")
     hist_ratio_reweighted.Divide(hist_stack_reweighted.GetStack().Last())
+else:
+    hist_ratio_original = define_plots_1D(binning, args.var, "Entries", "ratio_original"+key+str(random.randint(1, 1000)))
+    hist_ratio_reweighted = define_plots_1D(binning, args.var, "Entries", "ratio_reweighted"+key+str(random.randint(1, 1000)))
 
 #for dir, hists in hists_data.iteritems():
 #    print dir, hists
@@ -319,36 +405,44 @@ def plotting(hist_stack, hist_data, hist_individual, hist_ratio, type):
     cv.Draw()
     cv.SetBottomMargin(0.2)
     cv.SetLeftMargin(0.13)
+    #cv.SetRightMargin(0.25)
 
     upperPad = ROOT.TPad("upperPad", "upperPad", 0, 0.33, 1, 1)
     lowerPad = ROOT.TPad("lowerPad", "lowerPad", 0, 0, 1, 0.33)
     upperPad.SetBottomMargin(0.00001)
     upperPad.SetLeftMargin(0.15)
+    upperPad.SetRightMargin(0.2)
     upperPad.SetBorderMode(0)
     upperPad.SetTopMargin(0.15)
-    upperPad.SetLogy()
+    if args.log_scale:
+        upperPad.SetLogy()
     lowerPad.SetTopMargin(0.00001)
     lowerPad.SetBottomMargin(0.4)
     lowerPad.SetLeftMargin(0.15)
+    lowerPad.SetRightMargin(0.2)
     lowerPad.SetBorderMode(0)
     upperPad.Draw()
     lowerPad.Draw()
 
     upperPad.cd()
 
-    hist_stack.SetMaximum(hist_stack.GetMaximum()*1000)#
+    hist_stack.SetMaximum(hist_stack.GetMaximum()*100)#
     hist_stack.SetMinimum(1)
     hist_stack.Draw("HIST")
 
     hist_stack.GetYaxis().SetTitle("Events")
     hist_stack.GetYaxis().SetTitleOffset(0.8)
 
-    hist_data.SetLineColor(ROOT.kBlack)
-    hist_data.Draw("SAME P")
+    if args.CR == "deltaR_SR":
+        hist_individual[args.hnl][1].Draw("SAME HIST")
 
-    mcs_legend = {"QCD": "QCD", "ST": "ST", "TTTo": "t#bar{t}", "WTo": "W#rightarrowl#nu", "DY": "DY#rightarrowll"}
+    if args.CR == "deltaR_CR":
+        hist_data.SetLineColor(ROOT.kBlack)
+        hist_data.Draw("SAME P")
 
-    legend = style.makeLegend(0.75,0.4,0.9,0.8)
+    mcs_legend = {"QCD": "QCD", "ST": "ST", "TTTo": "t#bar{t}", "WTo": "W#rightarrowl#nu", "DY": "DY#rightarrowll", args.hnl: "HNL"}
+
+    legend = style.makeLegend(0.83,0.3,0.98,0.8)
     #legend.SetHeader(years[0], "C")
     for mc in mcs:
         legend.AddEntry(hist_individual[mc][1], mcs_legend[mc],"f")
@@ -360,16 +454,15 @@ def plotting(hist_stack, hist_data, hist_individual, hist_ratio, type):
 
     lowerPad.cd()
 
-
     axis = hist_stack.GetStack().Last().Clone("axis")
     axis.SetMinimum(0.0)
     axis.SetMaximum(2.0)
-    axis.GetXaxis().SetTitle(args.var)
+    axis.GetXaxis().SetTitle(args.xaxis_title)
     axis.GetXaxis().SetTitleOffset(2.5)
     axis.GetYaxis().SetTitle("Data/MC")
     axis.Draw("AXIS")
 
-    line = ROOT.TLine(0.0, 1, 60.0, 1)
+    line = ROOT.TLine(0.0, 1, args.feature_max, 1)
     line.Draw("SAME")
 
     for ibin in range(hist_stack.GetHistogram().GetNbinsX()):
@@ -393,9 +486,47 @@ def plotting(hist_stack, hist_data, hist_individual, hist_ratio, type):
             style.rootObj.append(box2)
             box2.Draw("SameL")
 
-    hist_ratio.Draw("SAME P")
+    if args.CR == "deltaR_CR":
+        hist_ratio.Draw("SAME P")
 
     cv.cd()
+
+    style.makeLumiText(0.85, 0.97, lumi=str(args.luminosity), year=str(args.year))
+    style.makeCMSText(0.13, 0.97,additionalText="Preliminary", dx=0.1)
+
+    style.makeText(0.2, 0.80, 0.3, 0.90, category_name)
+    if args.CR == "deltaR_CR":
+        style.makeText(0.15, 0.03, 0.4, 0.08, "data/MC = {0:.3g}".format(hist_data.Integral()/hist_stack.GetStack().Last().Integral()))
+
+    cv.Modified()
+
+    cv.SaveAs(args.dir+"plots/"+args.var+"_"+str(type)+"_"+str(args.CR)+"_"+str(category)+"_"+str(args.year)+".pdf")
+    cv.SaveAs(args.dir+"plots/"+args.var+"_"+str(type)+"_"+str(args.CR)+"_"+str(category)+"_"+str(args.year)+".png")
+
+plotting(hist_stack_reweighted, hist_data, hist_reweighted, hist_ratio_reweighted, "reweighted")
+plotting(hist_stack_original, hist_data, hist_reweighted, hist_ratio_original, "original")
+
+
+
+
+
+
+
+
+def plotting_ratio(hist_ratio, type):
+
+    cv = ROOT.TCanvas()
+    cv.Draw()
+    cv.SetBottomMargin(0.2)
+    cv.SetLeftMargin(0.13)
+    #cv.SetRightMargin(0.25)
+
+    if args.log_scale:
+        cv.SetLogy()
+
+    hist_ratio.GetXaxis().SetTitle(args.var)
+    hist_ratio.GetYaxis().SetTitle("S/#sqrt{B}")
+    hist_ratio.Draw("HIST")
 
     style.makeLumiText(0.85, 0.97, lumi=str(args.luminosity), year=str(args.year))
     style.makeCMSText(0.13, 0.97,additionalText="Preliminary", dx=0.1)
@@ -405,5 +536,15 @@ def plotting(hist_stack, hist_data, hist_individual, hist_ratio, type):
     cv.SaveAs(args.dir+"plots/"+args.var+"_"+str(type)+"_"+str(args.CR)+"_"+str(category)+"_"+str(args.year)+".pdf")
     cv.SaveAs(args.dir+"plots/"+args.var+"_"+str(type)+"_"+str(args.CR)+"_"+str(category)+"_"+str(args.year)+".png")
 
-plotting(hist_stack_reweighted, hist_data, hist_reweighted, hist_ratio_reweighted, "reweighted")
-plotting(hist_stack_original, hist_data, hist_reweighted, hist_ratio_original, "original")
+if args.CR == "deltaR_SR":
+    hist_cumulative_sig = hist_reweighted[args.hnl][1].Clone("sig vs bkg").GetCumulative(0)
+    hist_cumulative_bkg = hist_stack_reweighted.GetStack().Last().GetCumulative(0)
+    for bin in range(hist_cumulative_bkg.GetNbinsX()+1):
+        if hist_cumulative_bkg.GetBinContent(bin+1) <= 0.:
+            hist_cumulative_bkg.SetBinContent(bin+1, 1.1)
+        else:
+            hist_cumulative_bkg.SetBinContent(bin+1, math.sqrt(hist_cumulative_bkg.GetBinContent(bin+1)))
+
+    hist_sig_bkg_reweighted = hist_cumulative_sig.Clone("ratio")
+    hist_sig_bkg_reweighted.Divide(hist_cumulative_bkg)
+    plotting_ratio(hist_sig_bkg_reweighted, "sigvsbkg_reweighted")

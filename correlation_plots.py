@@ -30,20 +30,38 @@ def get_df(path, branches, sig):
 
 	return pd.concat(iters)
 
-path = "/vols/cms/jd918/LLP/CMSSW_10_2_18/"
+path1 = "/vols/cms/jd918/LLP/CMSSW_10_2_18/"
+path = "/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/30Jul20/"
 
 array_preselection = [
 			"nleadingLepton", "nlepJet_nominal", "nsubleadingLepton", "lepJet_nominal_deltaR",
 			"dilepton_charge", "IsoMuTrigger_flag"
 			]
 
-with open(os.path.join(path,"src/PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")) as f:
+with open(os.path.join(path1,"src/PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")) as f:
 	array_bdt = [line.rstrip() for line in f]
 
 array_list = array_preselection + array_bdt
 
 n_events=200000
 
+sig_df = get_df(os.path.join(path,"/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/30Jul20/2016//HNL_*/nano_*_Friend.root"), array_list, True)
+print(sig_df.shape[0])
+
+useOneFile = False
+
+if useOneFile:
+	sig_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/HNL_dirac_all_ctau1p0e01_massHNL4p5_Vall4p549e-03-2016/nano_1_Friend.root"), array_list + ["LHEWeights_coupling_12"], True)
+	wjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/WToLNu_0J_13TeV-amcatnloFXFX-pythia8-2016/nano_1_Friend.root"), array_list, False)
+	tt_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)
+	dyjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/DYJetsToLL_M-10to50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8-2016/nano_1_Friend.root"), array_list, False)
+	#bkg_df = pd.concat([wjets_df, dyjets_df, tt_df]).sample(n=n_events)
+else:
+	sig_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016//HNL_*/nano_*_Friend.root"), array_list, True)
+	wjets_df = get_df(os.path.join(path,"2016/WToLNu_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	tt_df = get_df(os.path.join(path,"2016/TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	dyjets_df = get_df(os.path.join(path,"2016/DYJetsToLL*amcatnlo*/nano_*1_Friend.root"), array_list, False).sample(n=n_events)
+'''
 sig_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016//HNL_*/nano_*_Friend.root"), array_list, True)
 print(sig_df.shape[0])
 
@@ -51,7 +69,7 @@ wjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/WToLNu_*/na
 tt_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
 dyjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/DYJetsToLL*amcatnlo*/nano_*1_Friend.root"), array_list, False).sample(n=n_events)
 
-'''
+
 sig_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/HNL_dirac_all_ctau1p0e01_massHNL4p5_Vall4p549e-03-2016/nano_1_Friend.root"), array_list + ["LHEWeights_coupling_12"], True)
 wjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/WToLNu_0J_13TeV-amcatnloFXFX-pythia8-2016/nano_1_Friend.root"), array_list, False)
 tt_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)
@@ -95,7 +113,7 @@ pyplot.savefig('BDT_confusion_matrix.png')
 
 fig, ax = pyplot.subplots(figsize=(12,10))
 pyplot.subplots_adjust(left=0.25, right=0.98, top=0.95, bottom=0.2)
-pyplot.title('Confusion matrix: signal')
+pyplot.title('Correlation matrix: signal')
 cor = df[label==1].corr()
 g = sns.heatmap(cor, annot=True, cmap=pyplot.cm.Reds, fmt=".2f")
 pyplot.savefig('BDT_confusion_matrix_sig.pdf')
@@ -104,7 +122,7 @@ pyplot.savefig('BDT_confusion_matrix_sig.png')
 
 fig, ax = pyplot.subplots(figsize=(12,10))
 pyplot.subplots_adjust(left=0.25, right=0.98, top=0.95, bottom=0.2)
-pyplot.title('Confusion matrix: background')
+pyplot.title('Correlation matrix: background')
 cor = df[label==0].corr()
 g = sns.heatmap(cor, annot=True, cmap=pyplot.cm.Reds, fmt=".2f")
 pyplot.savefig('BDT_confusion_matrix_bkg.pdf')

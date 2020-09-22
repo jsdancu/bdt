@@ -16,16 +16,19 @@ import seaborn as sns
 def get_df(path, branches, sig):
 	iters = []
 	for data in uproot.pandas.iterate(path, "Friends", branches=branches, flatten=False):
-		#print(path)
+		print(data.keys())
 
-		data = data[data.nleadingLepton == 1]#one leading lepton in event
-		data = data[data.nsubleadingLepton == 1]#one subleading lepton in event
+		data = data[data.nleadingLeptons == 1]#one leading lepton in event
+		data = data[data.nsubleadingLeptons == 1]#one subleading lepton in event
 		data = data[data.nselectedJets_nominal > 0]#at least one jet in event
 		data = data[data.dilepton_mass < 80.]#apply CR cut
 		data = data[data.dilepton_mass > 20.0]
 		data = data[data.EventObservables_nominal_met < 100.]#apply CR cut
-		#data = data[data.lepJet_nominal_deltaR < 0.4]#DeltaR cut
-		data = data[data.dilepton_charge == -1]#Dirac samples only, i.e. opposite sign leptons
+		data = data[data.MET_filter == 1]#apply MET filter
+
+		data.lepJet_nominal_deltaR = data.lepJet_nominal_deltaR.map(lambda x: x[0])
+		data = data[data.lepJet_nominal_deltaR < 2.0]#DeltaR cut
+		#data = data[data.dilepton_charge == -1]#Dirac samples only, i.e. opposite sign leptons
 		#data = data[data.IsoMuTrigger_flag == True]#muon trigger applied for event
 
 		iters.append(data)
@@ -35,9 +38,9 @@ def get_df(path, branches, sig):
 
 def working_point_cuts(df):
 
-	df = df[df.nselectedJets_nominal < 6]
+	#df = df[df.nselectedJets_nominal < 6]
 	df = df[df.EventObservables_nominal_ht < 180.0]
-	df = df[df.EventObservables_nominal_mT_met_Mu < 80.0]
+	df = df[df.leadingLeptons_nominal_mtw < 80.0]
 	df = df[df.EventObservables_nominal_met < 80.0]
 	df = df[df.dilepton_mass < 80.0]
 
@@ -67,15 +70,18 @@ def change_feat(df, array_bdt):
 
     return df
 
-path = "/vols/cms/jd918/LLP/CMSSW_10_2_18/"
-modelPath = os.path.join(path,"src/PhysicsTools/NanoAODTools/data/bdt/bdt.model")
+path = "/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/19Sep20_notagger"
+path1 = "/vols/cms/jd918/LLP/CMSSW_10_2_18/src/"
+modelPath = os.path.join(path1,"bdt/bdt.model")
+#modelPath = os.path.join(path1,"PhysicsTools/NanoAODTools/data/bdt/bdt.model")
 
 array_preselection = [
-			"nleadingLepton", "nlepJet_nominal", "nsubleadingLepton", "lepJet_nominal_deltaR",
-			"dilepton_charge", "IsoMuTrigger_flag"
+			"nleadingLeptons", "nsubleadingLeptons", "nselectedJets_nominal",
+			"dilepton_charge", "IsoMuTrigger_flag", "lepJet_nominal_deltaR",
+			"MET_filter"
 			]
 
-with open(os.path.join(path,"src/PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")) as f:
+with open(os.path.join(path1,"PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")) as f:
 	array_bdt = [line.rstrip() for line in f]
 
 array_list = array_preselection + array_bdt
@@ -91,26 +97,26 @@ samples = {
 useOneFile = False
 
 if useOneFile:
-	sig_df_dict = {sample: get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016",sample,"nano_1_Friend.root"), array_list, True)[array_bdt] for sample in samples.keys()}
+	sig_df_dict = {sample: get_df(os.path.join(path,"2016",sample,"nano_1_Friend.root"), array_list, True) for sample in samples.keys()}
 	sig_label_dict = {sample: np.ones(sig_df_dict[sample].shape[0]) for sample in samples}
 
-	wjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/WToLNu_0J_13TeV-amcatnloFXFX-pythia8-2016/nano_1_Friend.root"), array_list, False)[array_bdt]
-	tt_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)[array_bdt]
-	dyjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/DYJetsToLL_M-10to50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8-2016/nano_1_Friend.root"), array_list, False)[array_bdt]
+	wjets_df = get_df(os.path.join(path,"2016/WToLNu_0J_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
+	tt_df = get_df(os.path.join(path,"2016/TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)
+	dyjets_df = get_df(os.path.join(path,"2016/DYJetsToLL_M-10to50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
 
 else:
-	sig_df_dict = {sample: get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016",sample,"nano_*_Friend.root"), array_list, True)[array_bdt] for sample in samples.keys()}
+	sig_df_dict = {sample: get_df(os.path.join(path,"2016",sample,"nano_*_Friend.root"), array_list, True) for sample in samples.keys()}
 	sig_label_dict = {sample: np.ones(sig_df_dict[sample].shape[0]) for sample in samples}
 
-	wjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/WToLNu_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
-	tt_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
-	dyjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/DYJetsToLL*amcatnlo*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	wjets_df = get_df(os.path.join(path,"2016/WToLNu_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	tt_df = get_df(os.path.join(path,"2016/TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	dyjets_df = get_df(os.path.join(path,"2016/DYJetsToLL*amcatnlo*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
 
 
 bkg_df = pd.concat([wjets_df, dyjets_df, tt_df])
 bkg_label = np.zeros(bkg_df.shape[0])
 
-df_dict = {sample: pd.concat([sig_df, bkg_df[array_bdt]]) for sample, sig_df in sig_df_dict.items()}
+df_dict = {sample: pd.concat([sig_df[array_bdt], bkg_df[array_bdt]]) for sample, sig_df in sig_df_dict.items()}
 label_dict = {sample: np.concatenate([sig_label, bkg_label]) for sample, sig_label in sig_label_dict.items()}
 
 for sample, df in df_dict.items():
@@ -124,6 +130,8 @@ for sample, df in df_dict.items():
 
 working_points = {sample: get_working_point(df, label_dict[sample]) for sample, df in df_dict.items()}
 print(working_points)
+
+#df_dict = {sample: df[array_bdt] for sample, df in df_dict.items()}
 
 model = XGBClassifier()
 booster = Booster()
@@ -141,7 +149,8 @@ for sample, df in df_dict.items():
 	fpr[sample], tpr[sample], _ = sklearn.metrics.roc_curve(label_dict[sample], bdt_score[sample][:, 1])
 
 
-figx = pickle.load(open('BDT_roc.fig.pickle', 'rb'))
+#figx = pickle.load(open('BDT_roc.fig.pickle', 'rb'))
+figx = pickle.load(open(os.path.join(path1,'bdt/BDT_roc.fig.pickle'), 'rb'))
 figx.show()
 
 bdt_roc = figx.axes[0].lines[0].get_data()
@@ -164,5 +173,5 @@ pyplot.xlabel('Signal Efficiency')
 pyplot.ylabel('Background Efficiency')
 pyplot.title('XGBoost ROC curve')
 #pyplot.show()
-pyplot.savefig('BDT_roc_samples.pdf')
-pyplot.savefig('BDT_roc_samples.png')
+pyplot.savefig(os.path.join(path1,'bdt/BDT_roc_samples.pdf'))
+pyplot.savefig(os.path.join(path1,'bdt/BDT_roc_samples.png'))

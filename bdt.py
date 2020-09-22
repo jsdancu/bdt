@@ -15,16 +15,20 @@ import seaborn as sns
 def get_df(path, branches, sig):
 	iters = []
 	for data in uproot.pandas.iterate(path, "Friends", branches=branches, flatten=False):
-		#print(path)
+		#print(data.keys())
 
-		data = data[data.nleadingLepton == 1]#one leading lepton in event
-		data = data[data.nsubleadingLepton == 1]#one subleading lepton in event
+		data = data[data.nleadingLeptons == 1]#one leading lepton in event
+		data = data[data.nsubleadingLeptons == 1]#one subleading lepton in event
 		data = data[data.nselectedJets_nominal > 0]#at least one jet in event
 		data = data[data.dilepton_mass < 80.]#apply CR cut
 		data = data[data.dilepton_mass > 20.]#apply CR cut
 		data = data[data.EventObservables_nominal_met < 100.]#apply CR cut
-		#data = data[data.lepJet_nominal_deltaR < 0.4]#DeltaR cut
-		data = data[data.dilepton_charge == -1]#Dirac samples only, i.e. opposite sign leptons
+		data = data[data.MET_filter == 1]#apply MET filter
+
+		data.lepJet_nominal_deltaR = data.lepJet_nominal_deltaR.map(lambda x: x[0])
+		data = data[data.lepJet_nominal_deltaR < 2.0]#DeltaR cut
+
+		#data = data[data.dilepton_charge == -1]#Dirac samples only, i.e. opposite sign leptons
 		#data = data[data.IsoMuTrigger_flag == True]#muon trigger applied for event
 
 		iters.append(data)
@@ -32,33 +36,36 @@ def get_df(path, branches, sig):
 
 	return pd.concat(iters)
 
-path = "/vols/cms/jd918/LLP/CMSSW_10_2_18/"
+path = "/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/19Sep20_notagger"
+path1 = "/vols/cms/jd918/LLP/CMSSW_10_2_18/src/"
 
 array_preselection = [
-			"nleadingLepton", "nlepJet_nominal", "nsubleadingLepton", "lepJet_nominal_deltaR",
-			"dilepton_charge", "IsoMuTrigger_flag"
+			"nleadingLeptons", "nsubleadingLeptons", "nselectedJets_nominal",
+			"dilepton_charge", "IsoMuTrigger_flag", "lepJet_nominal_deltaR",
+			"MET_filter"
 			]
 
-with open(os.path.join(path,"src/PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")) as f:
+with open(os.path.join(path1, "PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")) as f:
 	array_bdt = [line.rstrip() for line in f]
 
 array_list = array_preselection + array_bdt
 
 n_events=300000
 
-sig_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016//HNL_*/nano_*_Friend.root"), array_list, True)
+useOneFile = False
 
-wjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/WToLNu_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
-tt_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
-dyjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/DYJetsToLL*amcatnlo*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+if useOneFile:
+	sig_df = get_df(os.path.join(path,"2016/HNL_majorana_all_ctau1p0e00_massHNL10p0_Vall1p177e-03-2016/nano_1_Friend.root"), array_list, True)
+	wjets_df = get_df(os.path.join(path,"2016/WToLNu_0J_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
+	tt_df = get_df(os.path.join(path,"2016/TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)
+	dyjets_df = get_df(os.path.join(path,"2016/DYJetsToLL_M-10to50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
+	#bkg_df = pd.concat([wjets_df, dyjets_df, tt_df]).sample(n=n_events)
+else:
+	sig_df = get_df(os.path.join(path,"2016//HNL_majorana_*/nano_*_Friend.root"), array_list, True)
+	wjets_df = get_df(os.path.join(path,"2016/WToLNu_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	tt_df = get_df(os.path.join(path,"2016/TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	dyjets_df = get_df(os.path.join(path,"2016/DYJetsToLL*amcatnlo*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
 
-'''
-sig_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/HNL_dirac_all_ctau1p0e01_massHNL4p5_Vall4p549e-03-2016/nano_1_Friend.root"), array_list, True)
-wjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/WToLNu_0J_13TeV-amcatnloFXFX-pythia8-2016/nano_1_Friend.root"), array_list, False)
-tt_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)
-dyjets_df = get_df(os.path.join(path,"src/nanoAOD_friends_200622/2016/DYJetsToLL_M-10to50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8-2016/nano_1_Friend.root"), array_list, False)
-#bkg_df = pd.concat([wjets_df, dyjets_df, tt_df]).sample(n=n_events)
-'''
 print(sig_df.shape[0])
 
 bkg_df = pd.concat([wjets_df, dyjets_df, tt_df])
@@ -94,9 +101,9 @@ df = df.reindex(sorted(df.columns), axis=1)
 X_train, X_test, y_train, y_test = train_test_split(df, label, test_size=0.2, random_state=42, stratify=label)
 
 # fit model no training data
-model = XGBClassifier(objective='binary:logistic', learning_rate=0.1, max_depth=10, n_estimators=200, nthread=-1)
+model = XGBClassifier(objective='binary:logistic', learning_rate=0.05, max_depth=4, n_estimators=1000, nthread=-1)
 eval_set = [(X_train, y_train), (X_test, y_test)]
-model.fit(X_train, y_train, eval_metric=["error", "logloss"], eval_set=eval_set, verbose=True)
+model.fit(X_train, y_train, eval_metric=["error", "logloss"], eval_set=eval_set, early_stopping_rounds=10, verbose=True)
 # make predictions for test data
 y_pred = model.predict(X_test)
 predictions = [round(value) for value in y_pred]
@@ -120,8 +127,8 @@ ax.legend()
 pyplot.ylabel('Log Loss')
 pyplot.title('XGBoost Log Loss')
 #pyplot.show()
-pyplot.savefig('BDT_loss.pdf')
-pyplot.savefig('BDT_loss.png')
+pyplot.savefig(os.path.join(path1,'bdt/BDT_loss.pdf'))
+pyplot.savefig(os.path.join(path1,'bdt/BDT_loss.png'))
 
 # plot classification error
 fig, ax = pyplot.subplots()
@@ -131,28 +138,28 @@ ax.legend()
 pyplot.ylabel('Classification Error')
 pyplot.title('XGBoost Classification Error')
 #pyplot.show()
-pyplot.savefig('BDT_error.pdf')
-pyplot.savefig('BDT_error.png')
+pyplot.savefig(os.path.join(path1,'bdt/BDT_error.pdf'))
+pyplot.savefig(os.path.join(path1,'bdt/BDT_error.png'))
 
 # take the second column because the classifier outputs scores for
 # the 0 class as well
 probs = model.predict_proba(X_test)[:, 1]
 
 fig, axes = pyplot.subplots()
-pyplot.hist(probs[y_test==0], label='background')
-pyplot.hist(probs[y_test==1], label='signal')
+pyplot.hist(probs[y_test==0], label='background', bins = 25)
+pyplot.hist(probs[y_test==1], label='signal', bins = 25)
 axes.legend()
 pyplot.ylabel('BDT output')
 pyplot.xlabel('signal (1) vs background (0)')
 pyplot.title('XGBoost separation')
-pyplot.savefig('BDT_output.pdf')
-pyplot.savefig('BDT_output.png')
+pyplot.savefig(os.path.join(path1,'bdt/BDT_output.pdf'))
+pyplot.savefig(os.path.join(path1,'bdt/BDT_output.png'))
 
 # fpr means false-positive-rate
 # tpr means true-positive-rate
 fpr, tpr, _ = metrics.roc_curve(y_test, probs)
 
-auc_score = metrics.auc(fpr, tpr)
+auc_score = 1.0 - metrics.auc(fpr, tpr)
 print('AUC = {:.3f}'.format(auc_score))
 
 fig, ax = pyplot.subplots()
@@ -163,10 +170,10 @@ pyplot.xlabel('Signal Efficiency')
 pyplot.ylabel('Background Efficiency')
 pyplot.title('XGBoost ROC curve')
 #pyplot.show()
-pyplot.savefig('BDT_roc.pdf')
-pyplot.savefig('BDT_roc.png')
+pyplot.savefig(os.path.join(path1,'bdt/BDT_roc.pdf'))
+pyplot.savefig(os.path.join(path1,'bdt/BDT_roc.png'))
 
-pickle.dump(fig, open('BDT_roc.fig.pickle', 'wb'))
+pickle.dump(fig, open(os.path.join(path1,'bdt/BDT_roc.fig.pickle'), 'wb'))
 
 # plot feature importance
 importances = {key:model.feature_importances_[i] for i, key in enumerate(df.keys())}
@@ -178,23 +185,16 @@ pyplot.xticks(range(len(importances.keys())), importances.keys(), rotation=90)
 pyplot.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.5)
 pyplot.title('XGBoost feature importances')
 pyplot.ylabel('Feature importances score')
-pyplot.savefig('BDT_feature_importances.pdf')
-pyplot.savefig('BDT_feature_importances.png')
+pyplot.savefig(os.path.join(path1,'bdt/BDT_feature_importances.pdf'))
+pyplot.savefig(os.path.join(path1,'bdt/BDT_feature_importances.png'))
 
 fig, ax = pyplot.subplots(5,8)
 plot_importance(model)
 pyplot.subplots_adjust(left=0.5, right=0.9, top=0.9, bottom=0.1)
 pyplot.title('XGBoost feature importances')
 #pyplot.show()
-pyplot.savefig('BDT_feature_importances_fscore.pdf')
-pyplot.savefig('BDT_feature_importances_fscore.png')
+pyplot.savefig(os.path.join(path1,'bdt/BDT_feature_importances_fscore.pdf'))
+pyplot.savefig(os.path.join(path1,'bdt/BDT_feature_importances_fscore.png'))
 
-model._Booster.save_model(os.path.join(path,"src/PhysicsTools/NanoAODTools/data/bdt/bdt.model"))
-
-'''
-#iris = sns.load_dataset(\"iris\")
-g = sns.pairplot(df, vars = df.keys())
-g.savefig('BDT_feature_correlations.pdf')
-g.savefig('BDT_feature_correlations.png')
-'''
-#model._Booster.save_model(os.path.join(path,"src/bdt.model"))
+#model._Booster.save_model(os.path.join(path1,"PhysicsTools/NanoAODTools/data/bdt/bdt.model"))
+model._Booster.save_model(os.path.join(path1,"bdt/bdt.model"))
