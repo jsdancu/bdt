@@ -54,7 +54,7 @@ variables={
         "dilepton_mass": [20, 20.0, 80.0, 0, "\'m(l_{1}l_{2}) (GeV)\'", 1],
         "dilepton_deltaPhi": [30, -3.14, 3.14, 0, "\'#Delta#phi(l_{1}l_{2})\'", 1],
         "dilepton_deltaR": [25, 0.0, 5.0, 0, "\'#DeltaR(l_{1}l_{2})\'", 1],
-        "leadingLeptons_nominal_mtw": [30, 0.0, 300.0, 1, "m_{T} (GeV)", 1],
+        "leadingLeptons_nominal_mtw": [30, 0.0, 300.0, 1, "\'m_{T} (GeV)\'", 1],
         "leadingLeptons_nominal_deltaPhi": [30, -3.14, 3.14, 1, "\'#Delta#phi(l_{1},MET)\'", 1],
         "leadingLeptons_pt": [10, 0.0, 100.0, 1, "\'p_{T}(l_{1}) (GeV)\'", 1],
         "leadingLeptons_eta": [25, -2.5, 2.5, 1, "\'#eta(l_{1})\'", 1],
