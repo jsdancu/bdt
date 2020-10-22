@@ -11,22 +11,33 @@ from sklearn import metrics
 from matplotlib import pyplot
 import pickle
 import seaborn as sns
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--year', dest='year', action='store', default="2016")
+parser.add_argument('--oneFile', dest='oneFile', action='store',type=int, default=1)
+parser.add_argument('--dir_data', dest='dir_data', action='store',default="/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/19Sep20_notagger")
+parser.add_argument('--dir_src', dest='dir_src', action='store',default="/vols/cms/jd918/LLP/CMSSW_10_2_18/src/")
+parser.add_argument('--bdt_inputs', dest='bdt_inputs', action='store',default="PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")
+
+args = parser.parse_args()
 
 def get_df(path, branches, sig):
 	iters = []
 	for data in uproot.pandas.iterate(path, "Friends", branches=branches, flatten=False):
-		#print(data.keys())
+		#print(path)
 
 		data = data[data.nleadingLeptons == 1]#one leading lepton in event
 		data = data[data.nsubleadingLeptons == 1]#one subleading lepton in event
 		data = data[data.nselectedJets_nominal > 0]#at least one jet in event
-		data = data[data.dilepton_mass < 80.]#apply CR cut
+		data = data[data.nselectedJets_nominal < 5]
+		data = data[data.dilepton_mass < 85.]#apply CR cut
 		data = data[data.dilepton_mass > 20.]#apply CR cut
 		data = data[data.EventObservables_nominal_met < 100.]#apply CR cut
 		data = data[data.MET_filter == 1]#apply MET filter
 
-		data.lepJet_nominal_deltaR = data.lepJet_nominal_deltaR.map(lambda x: x[0])
-		data = data[data.lepJet_nominal_deltaR < 2.0]#DeltaR cut
+		data = data[data.selectedJets_nominal_minDeltaRSubtraction.map(lambda x: (x < 1.3).any())]#min DeltaR cut for signal region
 
 		#data = data[data.dilepton_charge == -1]#Dirac samples only, i.e. opposite sign leptons
 		#data = data[data.IsoMuTrigger_flag == True]#muon trigger applied for event
@@ -36,35 +47,35 @@ def get_df(path, branches, sig):
 
 	return pd.concat(iters)
 
-path = "/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/19Sep20_notagger"
-path1 = "/vols/cms/jd918/LLP/CMSSW_10_2_18/src/"
+path = args.dir_data
+path1 = args.dir_src
 
 array_preselection = [
 			"nleadingLeptons", "nsubleadingLeptons", "nselectedJets_nominal",
 			"dilepton_charge", "IsoMuTrigger_flag", "lepJet_nominal_deltaR",
-			"MET_filter"
+			"MET_filter", "selectedJets_nominal_minDeltaRSubtraction"
 			]
 
-with open(os.path.join(path1, "PhysicsTools/NanoAODTools/data/bdt/bdt_inputs.txt")) as f:
+with open(os.path.join(path1, args.bdt_inputs)) as f:
 	array_bdt = [line.rstrip() for line in f]
 
 array_list = array_preselection + array_bdt
 
-n_events=300000
+n_events=30000
 
-useOneFile = False
+useOneFile = args.oneFile
 
 if useOneFile:
-	sig_df = get_df(os.path.join(path,"2016/HNL_majorana_all_ctau1p0e00_massHNL10p0_Vall1p177e-03-2016/nano_1_Friend.root"), array_list, True)
-	wjets_df = get_df(os.path.join(path,"2016/WToLNu_0J_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
-	tt_df = get_df(os.path.join(path,"2016/TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)
-	dyjets_df = get_df(os.path.join(path,"2016/DYJetsToLL_M-10to50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
+	sig_df = get_df(os.path.join(path, args.year, "HNL_majorana_all_ctau1p0e00_massHNL10p0_Vall1p177e-03-2016/nano_1_Friend.root"), array_list, True)
+	wjets_df = get_df(os.path.join(path, args.year, "WToLNu_0J_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
+	tt_df = get_df(os.path.join(path, args.year, "TTToSemiLeptonic_*/nano_1_Friend.root"), array_list, False)
+	dyjets_df = get_df(os.path.join(path, args.year, "DYJetsToLL_M-10to50_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8-ext1-2016/nano_1_Friend.root"), array_list, False)
 	#bkg_df = pd.concat([wjets_df, dyjets_df, tt_df]).sample(n=n_events)
 else:
-	sig_df = get_df(os.path.join(path,"2016//HNL_majorana_*/nano_*_Friend.root"), array_list, True)
-	wjets_df = get_df(os.path.join(path,"2016/WToLNu_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
-	tt_df = get_df(os.path.join(path,"2016/TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
-	dyjets_df = get_df(os.path.join(path,"2016/DYJetsToLL*amcatnlo*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	sig_df = get_df(os.path.join(path, args.year, "HNL_majorana_*/nano_[1-4]_Friend.root"), array_list, True)
+	wjets_df = get_df(os.path.join(path, args.year, "WToLNu_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	tt_df = get_df(os.path.join(path, args.year, "TTToSemiLeptonic_*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
+	dyjets_df = get_df(os.path.join(path, args.year, "DYJetsToLL*amcatnlo*/nano_*_Friend.root"), array_list, False).sample(n=n_events)
 
 print(sig_df.shape[0])
 
@@ -87,16 +98,12 @@ print(df)
 
 for feat in array_bdt:
 	if df[feat].dtypes == object:
-		print(df[feat])
+		#print(df[feat])
 		df[feat] = df[feat].map(lambda x: x[0])
-		print(df[feat])
-'''
-df["EventObservables_nominal_met_phi-leadingLepton_phi"] = df["EventObservables_nominal_met_phi"] - df["leadingLepton_phi"]
-df.drop("leadingLepton_phi", axis=1, inplace=True)
-print(df)
-'''
+		#print(df[feat])
 
 df = df.reindex(sorted(df.columns), axis=1)
+print(df)
 
 X_train, X_test, y_train, y_test = train_test_split(df, label, test_size=0.2, random_state=42, stratify=label)
 
