@@ -45,42 +45,54 @@ eval `scramv1 runtime -sh`
 
 jobArrayCfg = []
 
-#CRs=["DY", "highMET"]
+
 CRs=["deltaR_CR", "deltaR_SR"]
+#CRs=["deltaR_CR"]
+
 categories=["muonmuon", "muonelectron", "electronelectron", "electronmuon"]
+
+dilepton_charge=["SS+OS", "SS", "OS"]
+
 variables={
-        "EventObservables_nominal_met": [10, 0.0, 100.0, 0, "\'MET (GeV)\'", 1],
-        "EventObservables_nominal_ht": [30, 0.0, 300.0, 0, "\'HT (GeV)\'", 1],
-        "dilepton_mass": [20, 20.0, 80.0, 0, "\'m(l_{1}l_{2}) (GeV)\'", 1],
-        "dilepton_deltaPhi": [30, -3.14, 3.14, 0, "\'#Delta#phi(l_{1}l_{2})\'", 1],
-        "dilepton_deltaR": [25, 0.0, 5.0, 0, "\'#DeltaR(l_{1}l_{2})\'", 1],
-        "leadingLeptons_nominal_mtw": [30, 0.0, 300.0, 1, "\'m_{T} (GeV)\'", 1],
-        "leadingLeptons_nominal_deltaPhi": [30, -3.14, 3.14, 1, "\'#Delta#phi(l_{1},MET)\'", 1],
-        "leadingLeptons_pt": [10, 0.0, 100.0, 1, "\'p_{T}(l_{1}) (GeV)\'", 1],
-        "leadingLeptons_eta": [25, -2.5, 2.5, 1, "\'#eta(l_{1})\'", 1],
-        "subleadingLeptons_pt": [10, 0.0, 100.0, 1, "\'p_{T}(l_{2}) (GeV)\'", 1],
-        "subleadingLeptons_eta": [25, -2.5, 2.5, 1, "\'#eta(l_{2})\'", 1],
-        "selectedJets_nominal_ptLeptonSubtracted": [10, 0.0, 100.0, 1, "\'p_{T}(jet) (GeV)\'", 1],
-        "selectedJets_nominal_eta": [25, -2.5, 2.5, 1, "\'#eta(jet)\'", 1]
-        # "bdt_score_nominal": [50, 0.0, 1.0, 0, "\'BDT score\'", 1],
+        # "EventObservables_nominal_met": [20, 0.0, 100.0, 0, "\'p^{miss}_{T} (GeV)\'", 1],
+        # "EventObservables_nominal_ht": [30, 0.0, 300.0, 0, "\'H_{T} (GeV)\'", 1],
+        # "dilepton_mass": [20, 20.0, 80.0, 0, "\'m(l_{1}l_{2}) (GeV)\'", 1],
+        # "dilepton_deltaPhi": [30, -3.14, 3.14, 0, "\'#Delta#phi(l_{1}l_{2})\'", 1],
+        # "dilepton_deltaR": [25, 0.0, 5.0, 0, "\'#DeltaR(l_{1}l_{2})\'", 1],
+        # "leadingLeptons_nominal_mtw": [30, 0.0, 300.0, 1, "\'m_{T} (GeV)\'", 1],
+        # "leadingLeptons_nominal_deltaPhi": [30, -3.14, 3.14, 1, "\'#Delta#phi(l_{1},p^{miss}_{T})\'", 1],
+        # "leadingLeptons_pt": [20, 25.0, 100.0, 1, "\'p_{T}(l_{1}) (GeV)\'", 1],
+        # "leadingLeptons_eta": [25, -2.4, 2.4, 1, "\'#eta(l_{1})\'", 1],
+        # "subleadingLeptons_pt": [20, 3.0, 100.0, 1, "\'p_{T}(l_{2}) (GeV)\'", 1],
+        # "subleadingLeptons_eta": [25, -2.4, 2.4, 1, "\'#eta(l_{2})\'", 1],
+        # "selectedJets_nominal_pt": [20, 15.0, 100.0, 1, "\'p_{T}(leading jet) (GeV)\'", 1],
+        # "selectedJets_nominal_eta": [25, -2.4, 2.4, 1, "\'#eta(leading jet)\'", 1],
+        # "leadingLeptons_isElectron": [3, -0.25, 1.25, 1, "\'isElectron (l_{1})\'", 1],
+        # "subleadingLeptons_isElectron": [3, -0.25, 1.25, 1, "\'isElectron (l_{2})\'", 1],
+        # "dilepton_charge": [3, -1.5, 1.5, 0, "\'sign(l_{1}#timesl_{2})\'", 1],
+        # "EventObservables_nominal_minPhiStar": [30, 0, 3.14, 0, "\'min(#Delta#phi*)\'", 1],
+        "bdt_score_nominal": [25, 0.0, 1.0, 0, "\'BDT score\'", 1],
+        "PV_npvs": [100, 0.0, 100., 0, "\'# of PV\'", 1],
+        "PV_npvsGood": [100, 0.0, 100., 0, "\'# of PV\'", 1]
         # "lepJet_nominal_deltaR": [55, 0.0, 5.5, 1, "\'#DeltaR(jet,l_{2})\'", 1]
         }
 
-#luminosity={"2016": 35.92, "2017":41.53, "2018":59.74}
-luminosity={"2016": 35.92}
-#dir_ntuples="/vols/cms/jd918/LLP/CMSSW_10_2_18/src/nanoAOD_friends_200622"
-#dir_ntuples="/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/30Jul20/"
-dir_ntuples="/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/19Sep20_notagger/"
+luminosity={"2016": 35.92, "2017":41.53, "2018":59.68}
+#luminosity={"2016": 35.92}
+
+dir_ntuples="/vols/cms/vc1117/LLP/nanoAOD_friends/HNL/03Dec20"
+#dir_ntuples="/vols/cms/jd918/LLP/CMSSW_10_2_18/src/ntuples"
 oneFile = 0
 
 for CR in CRs:
     for category in categories:
-        for var, binning in variables.iteritems():
-            for year, lumi in luminosity.iteritems():
-                jobArrayCfg.append({
-                 "cmd": [
-                 "--year "+str(year)+" --CR "+str(CR)+" --category "+str(category)+" --var "+str(var)+" --luminosity "+str(lumi)+" --dir_ntuples "+str(dir_ntuples)+" --bins "+str(binning[0])+" --feature_min "+str(binning[1])+" --feature_max "+str(binning[2])+" --array_var "+str(binning[3])+" --xaxis_title "+str(binning[4])+" --log_scale "+str(binning[5])+" --oneFile "+str(oneFile)
-                 ]
-                })
+        for dilep_ch in dilepton_charge:
+            for var, binning in variables.iteritems():
+                for year, lumi in luminosity.iteritems():
+                    jobArrayCfg.append({
+                     "cmd": [
+                     "--year "+str(year)+" --CR "+str(CR)+" --category "+str(category)+" --dilepton_charge "+str(dilep_ch)+" --var "+str(var)+" --luminosity "+str(lumi)+" --dir_ntuples "+str(dir_ntuples)+" --bins "+str(binning[0])+" --feature_min "+str(binning[1])+" --feature_max "+str(binning[2])+" --array_var "+str(binning[3])+" --xaxis_title "+str(binning[4])+" --log_scale "+str(binning[5])+" --oneFile "+str(oneFile)
+                     ]
+                    })
 
 makeSubmitFile(jobArrayCfg,"job-validation-parametric.sh")
